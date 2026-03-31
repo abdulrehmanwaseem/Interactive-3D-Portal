@@ -54,15 +54,7 @@ function PortalContent({
         particleStreakFactor={state.particleStreakFactor}
       />
 
-      {/* PostProcessing disabled - causes WebGL context crashes */}
-      {!disablePostProcessing && (
-        <PortalPostProcessing
-          bloomIntensity={state.bloomIntensity}
-          bloomThreshold={state.bloomThreshold}
-          vignetteDarkness={state.vignetteDarkness}
-          isMobile={isMobile}
-        />
-      )}
+      {/* PostProcessing disabled - shader vignette replaces it */}
     </>
   )
 }

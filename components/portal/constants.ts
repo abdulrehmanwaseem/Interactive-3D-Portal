@@ -106,8 +106,8 @@ float snoise(vec3 v) {
 `
 
 // --- Particle Config ---
-export const PARTICLE_COUNT_DESKTOP = 250
-export const PARTICLE_COUNT_MOBILE = 120
+export const PARTICLE_COUNT_DESKTOP = 500
+export const PARTICLE_COUNT_MOBILE = 200
 
 // --- Tunnel Geometry ---
 export const TUNNEL_RADIUS_TOP = 1.0

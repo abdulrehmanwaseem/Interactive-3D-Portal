@@ -9,8 +9,10 @@ const particleVertexShader = /* glsl */ `
 uniform float uTime;
 uniform float uProgress;
 uniform float uPointSize;
+uniform float uParticleSpeed;
+uniform float uStreakFactor;
 
-attribute vec3 aOffset;  // x=angle, y=radius, z=phase
+attribute vec3 aOffset;
 attribute float aSpeed;
 attribute float aSize;
 
@@ -22,34 +24,35 @@ void main() {
   float radius = aOffset.y;
   float phase = aOffset.z;
 
-  float speed = aSpeed * (0.3 + uProgress * 2.5);
+  // Aggressive speed that ramps hard with progress
+  float speed = aSpeed * uParticleSpeed;
   float t = fract(uTime * speed * 0.08 + phase);
 
-  // INWARD SPIRAL
-  float currentRadius = radius * (1.0 - t * 0.9);
-  float angularSpeed = 1.0 + (1.0 - currentRadius / max(radius, 0.01)) * 5.0;
+  // INWARD SPIRAL - tighter rotation near center
+  float currentRadius = radius * (1.0 - t * 0.92);
+  float angularSpeed = 1.0 + (1.0 - currentRadius / max(radius, 0.01)) * 10.0;
   float currentAngle = angle + uTime * angularSpeed * speed * 0.4;
 
-  // Vertical ellipse matching portal shape
+  // Vertical ellipse matching portal
   float x = currentRadius * cos(currentAngle);
-  float y = currentRadius * sin(currentAngle) * 1.18; // stretch Y to match portal ellipse
+  float y = currentRadius * sin(currentAngle) * 1.18;
   float z = mix(2.0, -1.0, t);
 
   vec3 particlePos = vec3(x, y, z);
   vec4 mvPosition = modelViewMatrix * vec4(particlePos, 1.0);
 
-  // Smaller, tighter particles
-  float streakFactor = 1.0 + uProgress * 1.0 * aSpeed;
-  float sizeFade = 1.0 - t * 0.4;
-  gl_PointSize = aSize * uPointSize * sizeFade * streakFactor * (80.0 / -mvPosition.z);
-  gl_PointSize = clamp(gl_PointSize, 0.5, 12.0);
+  // Streaking based on actual streak factor
+  float streakMul = 1.0 + (uStreakFactor - 1.0) * aSpeed;
+  float sizeFade = 1.0 - t * 0.3;
+  gl_PointSize = aSize * uPointSize * sizeFade * streakMul * (60.0 / -mvPosition.z);
+  gl_PointSize = clamp(gl_PointSize, 0.5, 10.0);
 
   gl_Position = projectionMatrix * mvPosition;
 
-  // Invisible at dormant, fade in with progress, hide during flash (>0.88)
-  float edgeFade = smoothstep(0.0, 0.2, t) * smoothstep(1.0, 0.8, t);
+  // Invisible at dormant, higher alpha overall, hide during flash
+  float edgeFade = smoothstep(0.0, 0.15, t) * smoothstep(1.0, 0.8, t);
   float flashHide = 1.0 - smoothstep(0.85, 0.92, uProgress) + smoothstep(0.95, 1.0, uProgress);
-  vAlpha = edgeFade * smoothstep(0.05, 0.25, uProgress) * (0.3 + uProgress * 0.5) * clamp(flashHide, 0.0, 1.0);
+  vAlpha = edgeFade * smoothstep(0.05, 0.2, uProgress) * (0.5 + uProgress * 0.5) * clamp(flashHide, 0.0, 1.0);
   vDepthFade = t;
 }
 `
@@ -64,13 +67,12 @@ void main() {
   vec2 center = gl_PointCoord - 0.5;
   float dist = length(center);
 
-  // Smooth soft circle (not hard-edged dot)
-  float circle = exp(-dist * dist * 12.0);
+  // Tiny pinpoint: hard cutoff, almost no falloff
+  float shape = smoothstep(0.45, 0.2, dist);
 
-  // Purple throughout
-  vec3 color = mix(uParticleColor, vec3(0.6, 0.4, 1.0), vDepthFade * 0.3);
+  vec3 color = mix(uParticleColor, vec3(0.8, 0.65, 1.0), vDepthFade * 0.3);
 
-  gl_FragColor = vec4(color, circle * vAlpha);
+  gl_FragColor = vec4(color, shape * vAlpha);
 }
 `
 
@@ -80,7 +82,7 @@ interface ParticleSystemProps {
   particleStreakFactor: number
 }
 
-export function ParticleSystem({ progress }: ParticleSystemProps) {
+export function ParticleSystem({ progress, particleSpeed, particleStreakFactor }: ParticleSystemProps) {
   const materialRef = useRef<THREE.ShaderMaterial>(null)
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
@@ -99,7 +101,7 @@ export function ParticleSystem({ progress }: ParticleSystemProps) {
       offsets[i * 3 + 2] = Math.random()
 
       speeds[i] = 0.5 + Math.random() * 1.5
-      sizes[i] = 0.2 + Math.random() * 0.8
+      sizes[i] = 0.3 + Math.random() * 1.0
     }
 
     const positions = new Float32Array(count * 3)
@@ -111,7 +113,9 @@ export function ParticleSystem({ progress }: ParticleSystemProps) {
     const unis = {
       uTime: { value: 0 },
       uProgress: { value: 0 },
-      uPointSize: { value: 0.4 },
+      uPointSize: { value: 0.6 },
+      uParticleSpeed: { value: 0.5 },
+      uStreakFactor: { value: 1.0 },
       uParticleColor: { value: COLORS.particles.clone() },
     }
 
@@ -122,6 +126,8 @@ export function ParticleSystem({ progress }: ParticleSystemProps) {
     if (!materialRef.current) return
     materialRef.current.uniforms.uTime.value = state.clock.elapsedTime
     materialRef.current.uniforms.uProgress.value = progress
+    materialRef.current.uniforms.uParticleSpeed.value = particleSpeed
+    materialRef.current.uniforms.uStreakFactor.value = particleStreakFactor
   })
 
   return (

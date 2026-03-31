@@ -16,29 +16,33 @@ export function CameraRig({ cameraZ, cameraFov, shakeIntensity }: CameraRigProps
   const targetFov = useRef(75)
 
   useFrame((state, delta) => {
-    const lerpFactor = Math.min(delta * 5, 1)
+    // Faster lerp = snappier camera response
+    const lerpFactor = Math.min(delta * 8, 1)
 
-    // Smooth forward motion
     targetZ.current += (cameraZ - targetZ.current) * lerpFactor
-
-    // Smooth FOV zoom
     targetFov.current += (cameraFov - targetFov.current) * lerpFactor
+
     const cam = camera as THREE.PerspectiveCamera
     cam.fov = targetFov.current
     cam.updateProjectionMatrix()
 
-    // Multi-frequency shake
     let shakeX = 0
     let shakeY = 0
+    let lurchZ = 0
     if (shakeIntensity > 0) {
       const time = state.clock.elapsedTime
       shakeX =
         (Math.sin(time * 13.7) + Math.sin(time * 23.1) * 0.5) * shakeIntensity
       shakeY =
         (Math.cos(time * 17.3) + Math.cos(time * 29.7) * 0.5) * shakeIntensity
+
+      // Forward lurches during intense shake (sells the pull)
+      if (shakeIntensity > 0.05) {
+        lurchZ = Math.sin(time * 7.3) * shakeIntensity * 0.4
+      }
     }
 
-    camera.position.set(shakeX, shakeY, targetZ.current)
+    camera.position.set(shakeX, shakeY, targetZ.current + lurchZ)
     camera.lookAt(0, 0, -100)
   })
 
