@@ -40,24 +40,7 @@ export default function Page() {
     return () => cancelAnimationFrame(animFrameRef.current)
   }, [isPlaying])
 
-  // GSAP cinematic pull-in: scale portal div during drag phase
-  const pullStartedRef = useRef(false)
-  useEffect(() => {
-    if (!portalRef.current) return
-
-    // Start the pull-in zoom at 50% (drag phase)
-    if (progress >= 0.5 && !pullStartedRef.current && isPlaying) {
-      pullStartedRef.current = true
-      // Accelerating zoom into the portal center
-      gsap.to(portalRef.current, {
-        scale: 2.8,
-        duration: 3.5,
-        ease: "power3.in", // slow start, fast end = being DRAGGED in
-      })
-    }
-  }, [progress, isPlaying])
-
-  // GSAP transition at flash peak: portal → new world
+  // GSAP transition at flash peak: portal → new world (no CSS scale — shader handles depth)
   useEffect(() => {
     if (progress >= 0.92 && !hasTriggeredRef.current && isPlaying) {
       hasTriggeredRef.current = true
@@ -69,10 +52,9 @@ export default function Page() {
         tl.to(controlsRef.current, { opacity: 0, duration: 0.15 })
       }
 
-      // Portal: final zoom burst + fade to white
+      // Portal fades to white (shader flash handles the visual, GSAP handles the crossfade)
       if (portalRef.current) {
         tl.to(portalRef.current, {
-          scale: 5,
           filter: "brightness(4)",
           opacity: 0,
           duration: 0.6,
@@ -115,11 +97,10 @@ export default function Page() {
         audioRef.current.currentTime = 0
         setProgress(0)
         hasTriggeredRef.current = false
-        pullStartedRef.current = false
         // Reset styles
         if (portalRef.current) {
           gsap.killTweensOf(portalRef.current)
-          gsap.set(portalRef.current, { scale: 1, opacity: 1, filter: "none" })
+          gsap.set(portalRef.current, { opacity: 1, filter: "none" })
         }
         if (newWorldRef.current) {
           gsap.set(newWorldRef.current, {
