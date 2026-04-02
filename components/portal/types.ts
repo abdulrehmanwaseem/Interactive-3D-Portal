@@ -46,6 +46,7 @@ export interface PortalAnimationState {
   cameraZ: number
   cameraFov: number
   shakeIntensity: number
+  suckInForce: number
   // Phase
   phase: PortalPhase
 }

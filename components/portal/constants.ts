@@ -11,12 +11,12 @@ export const COLORS = {
 
 // --- Phase Breakpoints (uProgress values) ---
 export const PHASE = {
-  DORMANT_END: 0.143,    // 0-1s
-  BUILD_END: 0.357,      // 1-2.5s
-  TENSION_END: 0.571,    // 2.5-4s
-  DRAG_END: 0.829,       // 4-5.8s
-  BREAKTHROUGH_END: 0.9, // 5.8-6.3s
-  ARRIVAL_END: 1.0,      // 6.3-7s
+  DORMANT_END: 0.12,     // 0-0.84s
+  BUILD_END: 0.30,       // 0.84-2.1s
+  TENSION_END: 0.50,     // 2.1-3.5s
+  DRAG_END: 0.72,        // 3.5-5.04s
+  BREAKTHROUGH_END: 0.95,// 5.04-6.65s  (extended — the main event)
+  ARRIVAL_END: 1.0,      // 6.65-7s
 } as const
 
 // --- Easing Functions ---

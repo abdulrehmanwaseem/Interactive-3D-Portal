@@ -42,7 +42,7 @@ export default function Page() {
 
   // GSAP transition at flash peak: portal → new world (no CSS scale — shader handles depth)
   useEffect(() => {
-    if (progress >= 0.92 && !hasTriggeredRef.current && isPlaying) {
+    if (progress >= 0.96 && !hasTriggeredRef.current && isPlaying) {
       hasTriggeredRef.current = true
 
       const tl = gsap.timeline()

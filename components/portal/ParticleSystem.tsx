@@ -66,7 +66,7 @@ void main() {
   gl_Position = projectionMatrix * mvPosition;
 
   float edgeFade = smoothstep(0.0, 0.1, t) * smoothstep(1.0, 0.7, t);
-  float flashHide = 1.0 - smoothstep(0.88, 0.96, uProgress);
+  float flashHide = 1.0 - smoothstep(0.93, 0.98, uProgress);
   // Particles barely visible at dormant, ramp up with progress
   float progressAlpha = smoothstep(0.05, 0.25, uProgress);
   vAlpha = edgeFade * progressAlpha * clamp(flashHide, 0.0, 1.0);

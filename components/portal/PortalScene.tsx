@@ -39,6 +39,7 @@ function PortalContent({
         cameraZ={state.cameraZ}
         cameraFov={state.cameraFov}
         shakeIntensity={state.shakeIntensity}
+        suckInForce={state.suckInForce}
       />
 
       <VortexTunnel
@@ -82,7 +83,7 @@ export function PortalScene({
         }}
         camera={{
           fov: 75,
-          near: 0.1,
+          near: 0.01,
           far: 100,
           position: [0, 0, 5],
         }}

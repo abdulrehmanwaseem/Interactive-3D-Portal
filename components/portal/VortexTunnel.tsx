@@ -110,54 +110,119 @@ void main() {
     }
   }
 
-  // ====== CENTER DOT (the "pull point" - bright core that draws you in) ======
-  // This is the key element: a bright white dot at center that grows
-  float centerP = smoothstep(0.0, 0.3, uProgress);
+  // ====== CENTER GATEWAY (a real opening you are about to enter) ======
+  // Phase 1 (0.0-0.45): gateway appears small
+  // Phase 2 (0.45-0.80): gateway grows PROMINENT and HOLDS — the destination is clear
+  // Phase 3 (0.80+): pull kicks in, gateway expands to engulf you
+  float centerP = smoothstep(0.0, 0.2, uProgress);
 
-  // Core dot: very concentrated bright point
-  float coreSize = 0.006 + uProgress * 0.015;
-  float coreDot = exp(-dist * dist / (coreSize * coreSize)) * centerP;
+  // Two-stage opening radius: grows moderately, then HOLDS at a prominent size
+  // before the suck-in phase expands it to fill screen
+  float baseRadius = 0.02 + smoothstep(0.0, 0.45, uProgress) * 0.03;
+  // From 0.45-0.80: gateway grows to a clearly visible size and holds
+  float holdRadius = smoothstep(0.45, 0.65, uProgress) * 0.07;
+  // From 0.80+: rapid expansion during the pull
+  float pullRadius = smoothstep(0.80, 0.95, uProgress) * 0.15;
+  float openingRadius = baseRadius + holdRadius + pullRadius;
 
-  // Inner glow around the dot
-  float glowSize = 0.02 + uProgress * 0.04;
-  float coreGlow = exp(-dist * dist / (glowSize * glowSize)) * centerP * 0.6;
+  float openingEdge = 0.006 + smoothstep(0.45, 0.70, uProgress) * 0.008;
+  float openingMask = smoothstep(openingRadius + openingEdge, openingRadius - openingEdge * 0.5, dist);
 
-  // Soft halo
-  float haloSize = 0.05 + uProgress * 0.08;
-  float coreHalo = exp(-dist * dist / (haloSize * haloSize)) * centerP * 0.3;
+  // Dark void inside the opening (depth/space feel)
+  float voidDarkness = openingMask * centerP * 0.9;
 
-  // As we approach breakthrough, the center dot EXPANDS dramatically
-  float expandP = smoothstep(0.8, 0.95, uProgress);
-  float expandSize = 0.01 + expandP * 2.0; // grows from tiny to HUGE
+  // BRIGHT RIM — intensifies during the hold phase (0.45-0.80)
+  float rimDist = abs(dist - openingRadius);
+  // Rim gets brighter and sharper during hold phase
+  float holdIntensity = 1.0 + smoothstep(0.45, 0.70, uProgress) * 1.5;
+  float rimSharp = exp(-rimDist * rimDist / (openingEdge * openingEdge * 1.2)) * centerP * holdIntensity;
+  float rimGlow = exp(-rimDist * rimDist / (openingEdge * openingEdge * 6.0)) * centerP * 0.6 * holdIntensity;
+
+  // Rim shimmer — pulses more actively during hold to draw attention
+  float shimmerSpeed = 3.0 + smoothstep(0.50, 0.80, uProgress) * 4.0;
+  float rimShimmer = sin(angle * 12.0 + uTime * shimmerSpeed) * 0.12 + 0.88;
+  rimSharp *= rimShimmer;
+
+  // Inner atmosphere: destination glow deep inside — stronger during hold
+  float atmoStrength = 0.2 + smoothstep(0.50, 0.75, uProgress) * 0.4;
+  float innerAtmo = exp(-dist * dist / (openingRadius * openingRadius * 0.35)) * centerP * atmoStrength;
+  // Pulsing deep light — like something breathing on the other side
+  float pulseSpeed = 1.5 + smoothstep(0.60, 0.80, uProgress) * 2.0;
+  float innerPulse = sin(uTime * pulseSpeed) * 0.12 + 0.88;
+  innerAtmo *= innerPulse;
+
+  // Inner depth rings — more visible during hold
+  float depthRingIntensity = 0.3 + smoothstep(0.50, 0.75, uProgress) * 0.5;
+  float innerRimR = openingRadius * 0.55;
+  float innerRimDist = abs(dist - innerRimR);
+  float innerRim = exp(-innerRimDist * innerRimDist / (openingEdge * openingEdge * 0.8)) * centerP * depthRingIntensity;
+  innerRim *= openingMask;
+
+  // Third depth ring
+  float deepRimR = openingRadius * 0.3;
+  float deepRimDist = abs(dist - deepRimR);
+  float deepRim = exp(-deepRimDist * deepRimDist / (openingEdge * openingEdge * 0.5)) * centerP * depthRingIntensity * 0.7;
+  deepRim *= openingMask;
+
+  // Fourth depth ring — only visible during hold (extra depth cue)
+  float deepRim2R = openingRadius * 0.15;
+  float deepRim2Dist = abs(dist - deepRim2R);
+  float deepRim2 = exp(-deepRim2Dist * deepRim2Dist / (openingEdge * openingEdge * 0.3)) * centerP * 0.2;
+  deepRim2 *= openingMask * smoothstep(0.55, 0.75, uProgress);
+
+  // As we approach breakthrough, the opening EXPANDS dramatically
+  float expandP = smoothstep(0.88, 0.96, uProgress);
+  float expandSize = 0.01 + expandP * 2.5;
   float expandDot = exp(-dist * dist / (expandSize * expandSize)) * expandP;
 
-  float centerTotal = coreDot + coreGlow + coreHalo + expandDot;
+  float centerTotal = rimSharp + rimGlow + innerAtmo + innerRim + deepRim + deepRim2 + expandDot;
 
-  // ====== RADIAL SPEED LINES (converging toward center, intensify with progress) ======
+  // ====== RADIAL SPEED LINES (converging toward center, keep escalating to 0.95) ======
   float speedLines = 0.0;
   if (uProgress > 0.35) {
-    float speedP = smoothstep(0.35, 0.85, uProgress);
+    float speedP = smoothstep(0.35, 0.95, uProgress);
+    // Time multiplier accelerates with progress for faster-moving lines
+    float timeAccel = 1.0 + smoothstep(0.72, 0.95, uProgress) * 4.0;
     // Lines that radiate from far out toward center
-    float linePattern = pow(abs(sin(angle * 24.0 + uTime * 6.0)), 16.0);
+    float linePattern = pow(abs(sin(angle * 24.0 + uTime * 6.0 * timeAccel)), 16.0);
     // Mask: visible from ring inward, strongest mid-distance
     float lineMask = smoothstep(ringRadius * 1.2, ringRadius * 0.4, dist)
                    * smoothstep(0.01, ringRadius * 0.2, dist);
     speedLines = linePattern * lineMask * speedP * 0.4;
 
     // Second layer of speed lines
-    float linePattern2 = pow(abs(sin(angle * 16.0 - uTime * 4.0 + 1.0)), 12.0);
+    float linePattern2 = pow(abs(sin(angle * 16.0 - uTime * 4.0 * timeAccel + 1.0)), 12.0);
     speedLines += linePattern2 * lineMask * speedP * 0.25;
+
+    // Third dense layer in late breakthrough
+    if (uProgress > 0.78) {
+      float lateP = smoothstep(0.78, 0.95, uProgress);
+      float linePattern3 = pow(abs(sin(angle * 36.0 + uTime * 10.0 * timeAccel + 2.5)), 10.0);
+      speedLines += linePattern3 * lineMask * lateP * 0.35;
+    }
   }
 
-  // ====== PASSING RINGS (tunnel depth markers rushing toward viewer) ======
+  // ====== PASSING RINGS (tunnel depth markers — speed up through breakthrough) ======
   float passingRings = 0.0;
   if (uProgress > 0.2) {
     float prP = smoothstep(0.2, 0.6, uProgress);
+    // Rings move faster in late stages
+    float ringSpeed = 0.7 + smoothstep(0.72, 0.95, uProgress) * 2.5;
     for (float i = 0.0; i < 7.0; i++) {
-      float ringT = fract(uTime * 0.7 + i * 0.143);
+      float ringT = fract(uTime * ringSpeed + i * 0.143);
       float r = ringT * ringRadius * 0.85;
       float w = 0.003 + ringT * 0.014;
       passingRings += exp(-pow((dist - r) / w, 2.0)) * (1.0 - ringT) * prP * 0.5;
+    }
+    // Extra dense rings in late breakthrough
+    if (uProgress > 0.80) {
+      float latePR = smoothstep(0.80, 0.95, uProgress);
+      for (float i = 0.0; i < 5.0; i++) {
+        float ringT2 = fract(uTime * ringSpeed * 1.5 + i * 0.2 + 0.5);
+        float r2 = ringT2 * ringRadius * 0.7;
+        float w2 = 0.002 + ringT2 * 0.01;
+        passingRings += exp(-pow((dist - r2) / w2, 2.0)) * (1.0 - ringT2) * latePR * 0.4;
+      }
     }
   }
 
@@ -178,19 +243,53 @@ void main() {
   float energyNoise = snoise(vec3(angle * 5.0 + uTime * 2.0, dist * 5.0, uTime * 0.8));
   energyNoise = max(energyNoise, 0.0) * ringOuter * 0.6;
 
-  // ====== BLAST RAYS (at breakthrough) ======
+  // ====== BLAST RAYS (at breakthrough — extended to 0.95) ======
   float blastRays = 0.0;
-  if (uProgress > 0.75) {
-    float blastP = smoothstep(0.75, 0.92, uProgress);
+  if (uProgress > 0.70) {
+    float blastP = smoothstep(0.70, 0.95, uProgress);
     for (float i = 0.0; i < 4.0; i++) {
       float rayAngle = angle * (8.0 + i * 3.0) + uTime * (4.0 + i * 1.5) + i * 1.5;
       float ray = pow(max(sin(rayAngle) * 0.5 + 0.5, 0.0), 3.0);
-      // Rays emanate from center outward
       float rayLen = smoothstep(0.01, ringRadius * 0.8, dist)
                    * smoothstep(ringRadius * 2.0, ringRadius * 0.5, dist);
       blastRays += ray * rayLen * blastP * (0.35 - i * 0.07);
     }
   }
+
+  // ====== SHOCKWAVE PULSES (expanding rings from center during breakthrough) ======
+  float shockwaves = 0.0;
+  if (uProgress > 0.72) {
+    float swP = smoothstep(0.72, 0.85, uProgress);
+    for (float i = 0.0; i < 4.0; i++) {
+      // Each shockwave expands outward at different phase
+      float swTime = fract(uTime * 1.2 + i * 0.25);
+      float swRadius = swTime * ringRadius * 0.6;
+      float swWidth = 0.005 + swTime * 0.015;
+      float sw = exp(-pow((dist - swRadius) / swWidth, 2.0));
+      // Fade out as they expand
+      sw *= (1.0 - swTime) * swP;
+      shockwaves += sw * 0.6;
+    }
+  }
+
+  // ====== ENERGY CRACKLING (lightning-like arcs around the portal rim) ======
+  float crackling = 0.0;
+  if (uProgress > 0.75) {
+    float crackP = smoothstep(0.75, 0.90, uProgress);
+    // Noise-based lightning that flickers
+    float crackNoise = snoise(vec3(angle * 15.0, dist * 30.0, uTime * 8.0));
+    float crackNoise2 = snoise(vec3(angle * 8.0 + 3.0, dist * 20.0, uTime * 6.0 + 5.0));
+    // Only show the sharp peaks (creates lightning look)
+    crackling = pow(max(crackNoise, 0.0), 6.0) * crackP;
+    crackling += pow(max(crackNoise2, 0.0), 8.0) * crackP * 0.6;
+    // Mask to the area around the ring and inner portal
+    float crackMask = smoothstep(ringRadius * 1.5, ringRadius * 0.3, dist)
+                    * smoothstep(0.01, ringRadius * 0.15, dist);
+    crackling *= crackMask;
+  }
+
+  // ====== LATE-STAGE INTENSITY RAMP (everything gets brighter 0.85-0.95) ======
+  float lateIntensity = 1.0 + smoothstep(0.82, 0.95, uProgress) * 1.5;
 
   // ====== AMBIENT HAZE ======
   float haze = exp(-pow(dist - ringRadius, 2.0) / 0.03) * 0.15 * intensity;
@@ -225,11 +324,24 @@ void main() {
   // Energy
   color += vec3(0.6, 0.3, 1.0) * energyNoise * 0.3;
 
-  // CENTER DOT: bright white-purple core that draws you in
-  vec3 dotColor = mix(vec3(0.6, 0.4, 1.0), vec3(1.0, 0.95, 1.0), coreDot);
-  color += dotColor * (coreDot * 4.5 + coreGlow * 2.5 + coreHalo * 1.2);
+  // CENTER GATEWAY: dark opening with bright defined rim
+  // First: darken the void area (the actual "hole" you look into)
+  color = mix(color, vec3(0.008, 0.003, 0.03), voidDarkness * 0.92);
 
-  // Expanding center (the dot growing to fill screen)
+  // Bright rim — high contrast white-purple edge, intensified during hold
+  vec3 rimColor = mix(vec3(0.7, 0.5, 1.0), vec3(1.0, 0.95, 1.0), rimSharp * 0.5);
+  color += rimColor * rimSharp * 4.0;
+  color += vec3(0.6, 0.4, 1.0) * rimGlow * 2.0;
+
+  // Inner depth rings (receding tunnel rings inside the opening)
+  color += vec3(0.5, 0.35, 0.9) * innerRim * 1.8;
+  color += vec3(0.4, 0.25, 0.8) * deepRim * 1.5;
+  color += vec3(0.35, 0.2, 0.75) * deepRim2 * 1.2;
+
+  // Inner atmosphere (destination glow deep inside — brighter during hold)
+  color += vec3(0.25, 0.15, 0.6) * innerAtmo * 2.0;
+
+  // Expanding center (the opening growing to fill screen at breakthrough)
   color += vec3(1.0, 0.97, 1.0) * expandDot * 2.5;
 
   // Dormant darkness
@@ -252,6 +364,21 @@ void main() {
   color += vec3(0.5, 0.3, 0.95) * blastRays;
   color += vec3(0.7, 0.6, 1.0) * blastRays * 0.4;
 
+  // Shockwave pulses (expanding white-purple rings)
+  color += vec3(0.8, 0.6, 1.0) * shockwaves;
+  color += vec3(1.0, 0.9, 1.0) * shockwaves * 0.3;
+
+  // Energy crackling (bright white lightning flashes)
+  color += vec3(0.9, 0.7, 1.0) * crackling * 2.0;
+  color += vec3(1.0, 1.0, 1.0) * crackling * 0.8;
+
+  // Late-stage overall intensity boost
+  color *= lateIntensity;
+
+  // ====== COLOR SHIFT toward white-hot in final moments ======
+  float whiteShift = smoothstep(0.88, 0.95, uProgress) * 0.35;
+  color = mix(color, vec3(length(color) * 1.2), whiteShift);
+
   // ====== WHITE FLASH (from center expanding outward) ======
   // Instead of uniform flash, this radiates from center
   float flashRadius = uFlashIntensity * uFlashIntensity * 3.0; // expands from center
@@ -260,8 +387,13 @@ void main() {
   float flashBlend = mix(centerFlash, 1.0, uFlashIntensity * uFlashIntensity);
   color = mix(color, vec3(1.0), flashBlend * uFlashIntensity);
 
+  // ====== FOCAL POINT CONTRAST BOOST ======
+  // Push contrast so the center gateway stands out as the clear destination
+  float focalBoost = smoothstep(ringRadius * 0.8, openingRadius * 2.0, dist);
+  color *= mix(1.15, 1.0, focalBoost); // brighten inner area slightly
+
   // ====== SHADER VIGNETTE (stronger for deeper contrast) ======
-  float vignette = 1.0 - smoothstep(0.25, 0.85, dist) * (0.2 + uProgress * 0.7);
+  float vignette = 1.0 - smoothstep(0.2, 0.8, dist) * (0.25 + uProgress * 0.75);
   // Reduce vignette during flash so white fills fully
   vignette = mix(vignette, 1.0, uFlashIntensity);
   color *= vignette;
@@ -284,9 +416,13 @@ void main() {
   alpha += depthBands * 0.4;
   alpha += passingRings * 0.5;
   alpha += speedLines * 0.5;
-  alpha += centerTotal * 0.8;
+  alpha += centerTotal * 0.9;
+  alpha += voidDarkness * 0.6;
   alpha += dormantDark * 0.4 * insideRing;
   alpha += blastRays * 0.6;
+  alpha += shockwaves * 0.5;
+  alpha += crackling * 0.6;
+  alpha += deepRim2 * 0.3;
   alpha += expandDot * 1.0;
   alpha *= intensity;
   alpha = max(alpha, uFlashIntensity);
