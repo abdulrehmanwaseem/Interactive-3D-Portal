@@ -25,6 +25,7 @@ uniform vec3 uColorOuter;
 uniform float uFlashIntensity;
 uniform float uAspect;
 uniform float uRingScale;
+uniform sampler2D uCityTexture;
 
 varying vec2 vUv;
 
@@ -375,27 +376,33 @@ void main() {
   // Late-stage overall intensity boost
   color *= lateIntensity;
 
-  // ====== COLOR SHIFT toward white-hot in final moments ======
-  float whiteShift = smoothstep(0.88, 0.95, uProgress) * 0.35;
-  color = mix(color, vec3(length(color) * 1.2), whiteShift);
+  // ====== LATE INTENSITY ======
+  float whiteShift = smoothstep(0.88, 0.96, uProgress) * 0.25;
+  color = mix(color, vec3(length(color) * 1.5), whiteShift);
+  
+  // ====== CITY PREVIEW IN CENTER ======
+  float cityReveal = smoothstep(0.80, 0.98, uProgress);
+  if (cityReveal > 0.0) {
+    vec2 cityUv = vUv - 0.5;
+    cityUv *= mix(0.5, 0.9, cityReveal); 
+    cityUv += 0.5;
+    
+    vec3 cityTexColor = texture2D(uCityTexture, cityUv).rgb;
+    
+    float portalMask = smoothstep(openingRadius * mix(0.5, 2.5, cityReveal), 0.01, dist);
+    
+    color = mix(color, cityTexColor * mix(0.2, 1.2, cityReveal), portalMask * cityReveal);
+  }
 
-  // ====== WHITE FLASH (from center expanding outward) ======
-  // Instead of uniform flash, this radiates from center
-  float flashRadius = uFlashIntensity * uFlashIntensity * 3.0; // expands from center
-  float centerFlash = exp(-dist * dist / max(flashRadius * flashRadius, 0.001));
-  // Blend: at low flash, just center brightens; at high flash, everything goes white
-  float flashBlend = mix(centerFlash, 1.0, uFlashIntensity * uFlashIntensity);
-  color = mix(color, vec3(1.0), flashBlend * uFlashIntensity);
+  // ====== EDGE DARKENING ====== 
+  color *= mix(1.0, clamp(1.5 - dist * 3.0, 0.0, 1.0), uFlashIntensity);
 
   // ====== FOCAL POINT CONTRAST BOOST ======
-  // Push contrast so the center gateway stands out as the clear destination
   float focalBoost = smoothstep(ringRadius * 0.8, openingRadius * 2.0, dist);
-  color *= mix(1.15, 1.0, focalBoost); // brighten inner area slightly
+  color *= mix(1.15, 1.0, focalBoost);
 
-  // ====== SHADER VIGNETTE (stronger for deeper contrast) ======
+  // ====== SHADER VIGNETTE ======
   float vignette = 1.0 - smoothstep(0.2, 0.8, dist) * (0.25 + uProgress * 0.75);
-  // Reduce vignette during flash so white fills fully
-  vignette = mix(vignette, 1.0, uFlashIntensity);
   color *= vignette;
 
   // ====== ALPHA ======
@@ -425,7 +432,6 @@ void main() {
   alpha += deepRim2 * 0.3;
   alpha += expandDot * 1.0;
   alpha *= intensity;
-  alpha = max(alpha, uFlashIntensity);
   alpha = clamp(alpha, 0.0, 1.0);
 
   // Subtle purple ambient inside
@@ -440,9 +446,10 @@ interface VortexTunnelProps {
   flashIntensity: number
   tunnelIntensity: number
   tunnelDepthScale: number
+  cityTexture?: THREE.Texture | null
 }
 
-export function VortexTunnel({ progress, flashIntensity, tunnelDepthScale }: VortexTunnelProps) {
+export function VortexTunnel({ progress, flashIntensity, tunnelDepthScale, cityTexture }: VortexTunnelProps) {
   const materialRef = useRef<THREE.ShaderMaterial>(null)
 
   const uniforms = useMemo(
@@ -455,6 +462,7 @@ export function VortexTunnel({ progress, flashIntensity, tunnelDepthScale }: Vor
       uFlashIntensity: { value: 0 },
       uAspect: { value: 1 },
       uRingScale: { value: 1 },
+      uCityTexture: { value: null as THREE.Texture | null },
     }),
     []
   )
@@ -467,6 +475,10 @@ export function VortexTunnel({ progress, flashIntensity, tunnelDepthScale }: Vor
     materialRef.current.uniforms.uRingScale.value = tunnelDepthScale
     materialRef.current.uniforms.uAspect.value =
       state.viewport.width / state.viewport.height
+      
+    if (cityTexture) {
+        materialRef.current.uniforms.uCityTexture.value = cityTexture
+    }
   })
 
   return (

@@ -6,9 +6,8 @@ import { PortalScene } from "@/components/portal/PortalScene"
 import { Globe } from "@/components/portal/Globe"
 import type { PortalPhase } from "@/components/portal/types"
 
-// Space image for the "new world" after portal transition
-const SPACE_BG =
-  "https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=1920&q=80"
+const CITY_BG =
+  "https://plus.unsplash.com/premium_photo-1733259750830-4cc0bd8d3979?q=80&w=1920&auto=format&fit=crop"
 
 export default function Page() {
   const [progress, setProgress] = useState(0)
@@ -22,59 +21,63 @@ export default function Page() {
   const newWorldRef = useRef<HTMLDivElement>(null)
   const controlsRef = useRef<HTMLDivElement>(null)
 
-  // Audio progress loop
   useEffect(() => {
     if (!isPlaying) return
 
     function tick() {
       const audio = audioRef.current
       if (!audio || audio.paused) return
-      const dur = audio.duration
-      if (dur && !isNaN(dur) && dur > 0) {
-        setProgress(Math.min(Math.max(audio.currentTime / dur, 0), 1))
+      
+      const simulatedDur = 7.0 
+      const current = Math.min(audio.currentTime, simulatedDur)
+      let p = current / simulatedDur
+      
+      if (p >= 1.0) {
+          p = 1.0
+          audio.pause()
+          setIsPlaying(false)
       }
-      animFrameRef.current = requestAnimationFrame(tick)
+      
+      setProgress(p)
+      
+      if (p < 1.0) {
+        animFrameRef.current = requestAnimationFrame(tick)
+      }
     }
 
     animFrameRef.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(animFrameRef.current)
   }, [isPlaying])
 
-  // GSAP transition at flash peak: portal → new world (no CSS scale — shader handles depth)
   useEffect(() => {
-    if (progress >= 0.96 && !hasTriggeredRef.current && isPlaying) {
+    if (progress >= 0.98 && !hasTriggeredRef.current && isPlaying) {
       hasTriggeredRef.current = true
 
       const tl = gsap.timeline()
 
-      // Fade out controls
       if (controlsRef.current) {
         tl.to(controlsRef.current, { opacity: 0, duration: 0.15 })
       }
 
-      // Portal fades to white (shader flash handles the visual, GSAP handles the crossfade)
       if (portalRef.current) {
         tl.to(portalRef.current, {
-          filter: "brightness(4)",
           opacity: 0,
-          duration: 0.6,
+          duration: 0.5,
           ease: "power2.in",
-        }, "-=0.1")
+        }, 0)
       }
 
-      // New world emerges from the white
       if (newWorldRef.current) {
         tl.fromTo(
           newWorldRef.current,
-          { opacity: 0, scale: 1.1, filter: "brightness(3) blur(6px)" },
+          { opacity: 1, clipPath: "circle(0% at 50% 50%)", scale: 1.05 },
           {
-            opacity: 1,
+            clipPath: "circle(150% at 50% 50%)",
             scale: 1,
-            filter: "brightness(1) blur(0px)",
-            duration: 1.8,
-            ease: "power3.out",
+            duration: 1.2,
+            ease: "power3.inOut",
           },
-          "-=0.3"
+          0
         )
       }
     }
@@ -100,11 +103,12 @@ export default function Page() {
         // Reset styles
         if (portalRef.current) {
           gsap.killTweensOf(portalRef.current)
-          gsap.set(portalRef.current, { opacity: 1, filter: "none" })
+          gsap.set(portalRef.current, { opacity: 1, scale: 1, filter: "none" })
         }
         if (newWorldRef.current) {
           gsap.set(newWorldRef.current, {
             opacity: 0,
+            clipPath: "circle(0% at 50% 50%)",
             scale: 1,
             filter: "none",
           })
@@ -131,18 +135,18 @@ export default function Page() {
           progress={progress}
           onPhaseChange={setPhase}
           className="absolute inset-0"
+          cityBg={CITY_BG}
         />
       </div>
 
-      {/* New world: space image (always in DOM, hidden via opacity) */}
       <div
         ref={newWorldRef}
         className="absolute inset-0 flex items-center justify-center"
-        style={{ opacity: 0 }}
+        style={{ opacity: 0, clipPath: "circle(0% at 50% 50%)" }}
       >
         <div
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${SPACE_BG})` }}
+          style={{ backgroundImage: `url(${CITY_BG})` }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/40" />
         <div className="relative z-10 flex flex-col items-center text-center">

@@ -77,61 +77,20 @@ export function CameraRig({ cameraZ, cameraFov, shakeIntensity, suckInForce }: C
       return
     }
 
-    // ========== PHYSICS MODE (velocity-based suck-in) ==========
-    // The cameraZ target from usePortalProgress acts as the FLOOR —
-    // physics can yank the camera forward in jolts, but it always
-    // springs back toward cameraZ. This means the camera can't
-    // outrun progress — it jolts ahead then gets pulled back,
-    // creating the "yank-resist-yank" rhythm.
-
-    // --- SPRING toward the target Z (keeps physics synced to progress) ---
-    const springForce = (cameraZ - physicsZ.current) * 6.0 * suckInForce
-    velocityZ.current += springForce * dt
-
-    // --- GRAVITATIONAL PULL: extra forward bias beyond the spring ---
-    const gravity = -0.8 * suckInForce * suckInForce
-    velocityZ.current += gravity * dt
-
-    // --- DISCRETE YANKS: sudden forward jolts ---
-    yankTimer.current += dt
-    yankCooldown.current -= dt
-
-    // Yanks get faster and stronger as force increases
-    const yankInterval = Math.max(0.10, 0.45 - suckInForce * 0.35)
-
-    if (yankTimer.current >= yankInterval && yankCooldown.current <= 0) {
-      // Sharp impulse — overshoots the target, then spring pulls back
-      const overshoot = -(0.3 + suckInForce * 1.2)
-      velocityZ.current += overshoot
-
-      yankCooldown.current = 0.05 // 50ms kickback window
-      yankTimer.current = 0
-    }
-
-    // --- MICRO KICKBACK after yank (brief backward resist) ---
-    if (yankCooldown.current > 0) {
-      velocityZ.current += 4.0 * dt
-    }
-
-    // --- VELOCITY DAMPING ---
-    velocityZ.current *= (1 - 3.0 * dt)
-
-    // --- INTEGRATE POSITION ---
+    // ========== PHYSICS MODE (velocity-based pull) ==========
+    const acceleration = -10.0 * suckInForce * suckInForce
+    velocityZ.current += acceleration * dt
+    velocityZ.current *= (1 - 1.5 * dt)
     physicsZ.current += velocityZ.current * dt
 
-    // Floor: never go below cameraZ minus a small overshoot allowance
-    // This ensures physics tracks progress, not running ahead to black screen
-    const minZ = Math.max(0.03, cameraZ - 0.4 * suckInForce)
-    physicsZ.current = Math.max(minZ, Math.min(physicsZ.current, 4.0))
+    physicsZ.current = Math.min(physicsZ.current, cameraZ)
 
-    // --- FOV: jolt on yanks ---
-    const fovJolt = yankCooldown.current > 0 ? -4.0 : 0
-    targetFov.current += (cameraFov + fovJolt - targetFov.current) * Math.min(dt * 18, 1)
+    const fovJolt = suckInForce > 0.8 ? (suckInForce - 0.8) * 40.0 : 0
+    targetFov.current += (cameraFov + fovJolt - targetFov.current) * Math.min(dt * 10, 1)
 
     cam.fov = targetFov.current
     cam.updateProjectionMatrix()
 
-    // --- SHAKE ---
     let shakeX = 0
     let shakeY = 0
 

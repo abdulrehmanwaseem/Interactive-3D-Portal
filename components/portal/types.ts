@@ -18,6 +18,8 @@ export interface PortalSceneProps {
   onPhaseChange?: (phase: PortalPhase) => void
   /** Disable post-processing */
   disablePostProcessing?: boolean
+  /** Pass city background image string for preview inside the portal hole */
+  cityBg?: string
 }
 
 export type PortalPhase =

@@ -8,19 +8,23 @@ import { CameraRig } from "./CameraRig"
 import { PortalPostProcessing } from "./PostProcessing"
 import { usePortalProgress } from "@/hooks/usePortalProgress"
 import type { PortalSceneProps, PortalPhase } from "./types"
+import { useTexture } from "@react-three/drei"
 
 function PortalContent({
   progress,
   disablePostProcessing,
+  cityImage,
   onPhaseChange,
 }: {
   progress: number
   disablePostProcessing: boolean
+  cityImage?: string
   onPhaseChange?: (phase: PortalPhase) => void
 }) {
   const state = usePortalProgress(progress)
   const prevPhaseRef = useRef<PortalPhase>("dormant")
   const [isMobile, setIsMobile] = useState(false)
+  const texture = cityImage ? useTexture(cityImage) : null
 
   useEffect(() => {
     setIsMobile(window.innerWidth < 768)
@@ -47,6 +51,7 @@ function PortalContent({
         flashIntensity={state.flashIntensity}
         tunnelIntensity={state.tunnelIntensity}
         tunnelDepthScale={state.tunnelDepthScale}
+        cityTexture={texture}
       />
 
       <ParticleSystem
@@ -66,6 +71,7 @@ export function PortalScene({
   style,
   onPhaseChange,
   disablePostProcessing = false,
+  cityBg,
 }: PortalSceneProps) {
   return (
     <div
@@ -93,6 +99,7 @@ export function PortalScene({
             progress={progress}
             disablePostProcessing={disablePostProcessing}
             onPhaseChange={onPhaseChange}
+            cityImage={cityBg}
           />
         </Suspense>
       </Canvas>
