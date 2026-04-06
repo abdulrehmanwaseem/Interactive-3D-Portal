@@ -20,14 +20,11 @@ export function CameraRig({ cameraZ, cameraFov, shakeIntensity, suckInForce }: C
   const velocityZ = useRef(0)
   const physicsZ = useRef<number | null>(null) // null = not active
   const lastSuckForce = useRef(0)
-  const yankTimer = useRef(0)
-  const yankCooldown = useRef(0)
 
   useFrame((state, delta) => {
-    const dt = Math.min(delta, 0.05) // cap delta to prevent huge jumps
+    const dt = Math.min(delta, 0.05)
     const time = state.clock.elapsedTime
 
-    // Keep near clip tight so camera can get close to portal without clipping
     const cam = camera as THREE.PerspectiveCamera
     cam.near = 0.01
 
@@ -35,19 +32,15 @@ export function CameraRig({ cameraZ, cameraFov, shakeIntensity, suckInForce }: C
     const wasActive = lastSuckForce.current > 0.01
     const isActive = suckInForce > 0.01
 
-    // Activate physics: snapshot current camera Z as starting point
     if (isActive && !wasActive) {
       physicsZ.current = targetZ.current
       velocityZ.current = 0
-      yankTimer.current = 0
-      yankCooldown.current = 0
     }
 
-    // Deactivate: return to target-based
     if (!isActive && wasActive) {
       physicsZ.current = null
       velocityZ.current = 0
-      targetZ.current = cameraZ // sync back
+      targetZ.current = cameraZ
     }
 
     lastSuckForce.current = suckInForce
@@ -83,14 +76,18 @@ export function CameraRig({ cameraZ, cameraFov, shakeIntensity, suckInForce }: C
     velocityZ.current *= (1 - 1.5 * dt)
     physicsZ.current += velocityZ.current * dt
 
-    physicsZ.current = Math.min(physicsZ.current, cameraZ)
+    // Clamp: follow cameraZ target as the floor (allows negative Z during arrival)
+    physicsZ.current = Math.min(physicsZ.current, cameraZ + 0.3)
+    physicsZ.current = Math.max(physicsZ.current, cameraZ - 0.5)
 
+    // FOV jolt during intense pull
     const fovJolt = suckInForce > 0.8 ? (suckInForce - 0.8) * 40.0 : 0
     targetFov.current += (cameraFov + fovJolt - targetFov.current) * Math.min(dt * 10, 1)
 
     cam.fov = targetFov.current
     cam.updateProjectionMatrix()
 
+    // Shake
     let shakeX = 0
     let shakeY = 0
 

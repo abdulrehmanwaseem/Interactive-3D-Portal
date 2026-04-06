@@ -6,8 +6,7 @@ import { PortalScene } from "@/components/portal/PortalScene"
 import { Globe } from "@/components/portal/Globe"
 import type { PortalPhase } from "@/components/portal/types"
 
-const CITY_BG =
-  "https://plus.unsplash.com/premium_photo-1733259750830-4cc0bd8d3979?q=80&w=1920&auto=format&fit=crop"
+const CITY_BG = "/images/bg-image.jpeg"
 
 export default function Page() {
   const [progress, setProgress] = useState(0)
@@ -27,19 +26,19 @@ export default function Page() {
     function tick() {
       const audio = audioRef.current
       if (!audio || audio.paused) return
-      
-      const simulatedDur = 7.0 
+
+      const simulatedDur = 7.0
       const current = Math.min(audio.currentTime, simulatedDur)
       let p = current / simulatedDur
-      
+
       if (p >= 1.0) {
-          p = 1.0
-          audio.pause()
-          setIsPlaying(false)
+        p = 1.0
+        audio.pause()
+        setIsPlaying(false)
       }
-      
+
       setProgress(p)
-      
+
       if (p < 1.0) {
         animFrameRef.current = requestAnimationFrame(tick)
       }
@@ -49,6 +48,7 @@ export default function Page() {
     return () => cancelAnimationFrame(animFrameRef.current)
   }, [isPlaying])
 
+  // At 0.98: portal canvas fades out, high-res city + text fades in
   useEffect(() => {
     if (progress >= 0.98 && !hasTriggeredRef.current && isPlaying) {
       hasTriggeredRef.current = true
@@ -59,14 +59,20 @@ export default function Page() {
         tl.to(controlsRef.current, { opacity: 0, duration: 0.15 })
       }
 
+      // Fade out the WebGL canvas
       if (portalRef.current) {
-        tl.to(portalRef.current, {
-          opacity: 0,
-          duration: 0.5,
-          ease: "power2.in",
-        }, 0)
+        tl.to(
+          portalRef.current,
+          {
+            opacity: 0,
+            duration: 0.5,
+            ease: "power2.in",
+          },
+          0
+        )
       }
 
+      // Circle-wipe reveal the high-res city + text
       if (newWorldRef.current) {
         tl.fromTo(
           newWorldRef.current,
@@ -129,7 +135,7 @@ export default function Page() {
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-black">
-      {/* Portal */}
+      {/* Portal — WebGL canvas handles tunnel + city preview in center */}
       <div ref={portalRef} className="absolute inset-0">
         <PortalScene
           progress={progress}
@@ -139,6 +145,7 @@ export default function Page() {
         />
       </div>
 
+      {/* High-res city reveal (circle-wipe after WebGL transition) */}
       <div
         ref={newWorldRef}
         className="absolute inset-0 flex items-center justify-center"
@@ -153,10 +160,10 @@ export default function Page() {
           <h1 className="mb-2 font-mono text-5xl font-bold tracking-wider text-white drop-shadow-lg">
             GATEWAY OPEN
           </h1>
-          <p className="mb-6 font-mono text-lg tracking-wide text-purple-300/80">
+          <p className="mb-12 font-mono text-lg tracking-wide text-purple-400">
             Welcome to 3024
           </p>
-          <Globe />
+          {/* <Globe /> */}
         </div>
       </div>
 

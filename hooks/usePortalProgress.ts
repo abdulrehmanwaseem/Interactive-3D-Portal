@@ -25,14 +25,18 @@ function getCameraZ(p: number): number {
     const t = (p - PHASE.TENSION_END) / (PHASE.DRAG_END - PHASE.TENSION_END)
     return lerp(2.5, 1.8, t * t)
   } else if (p <= 0.80) {
+    // HOLD phase — gateway visible
     const t = (p - PHASE.DRAG_END) / (0.80 - PHASE.DRAG_END)
     return lerp(1.8, 1.6, t)
   } else if (p <= PHASE.BREAKTHROUGH_END) {
+    // PULL phase — slam forward through the portal
     const t = (p - 0.80) / (PHASE.BREAKTHROUGH_END - 0.80)
     const eased = Math.pow(t, 3.0)
     return lerp(1.6, 0.15, eased)
   } else {
-    return 0.15
+    // ARRIVAL — camera continues past portal into city
+    const t = (p - PHASE.BREAKTHROUGH_END) / (PHASE.ARRIVAL_END - PHASE.BREAKTHROUGH_END)
+    return lerp(0.15, -3.0, Math.pow(t, 0.6))
   }
 }
 
@@ -59,6 +63,7 @@ function getRingScale(p: number): number {
     const t = (p - PHASE.DRAG_END) / (0.85 - PHASE.DRAG_END)
     return lerp(8.0, 15.0, t)
   } else {
+    // Ring shrinks as camera passes through (tunnel collapses behind you)
     const t = clamp((p - 0.85) / (1.0 - 0.85), 0, 1)
     return lerp(15.0, 0.1, Math.pow(t, 2.0))
   }
@@ -91,11 +96,11 @@ export function usePortalProgress(progress: number): PortalAnimationState {
         : p < 0.55 ? lerp(75, 48, Math.pow(smoothstep(0.15, 0.55, p), 1.8))
         : p < 0.80 ? lerp(48, 38, smoothstep(0.55, 0.80, p))
         : p < 0.96 ? lerp(38, 12, Math.pow(smoothstep(0.80, 0.96, p), 2.0))
-        : lerp(12, 120, Math.pow(smoothstep(0.96, 1.0, p), 3.0)), 
+        : lerp(12, 120, Math.pow(smoothstep(0.96, 1.0, p), 3.0)),  // wide burst into city
       shakeIntensity: p < 0.3 ? 0
         : p < 0.80 ? clamp((p - 0.3) * 0.06, 0, 0.04)
         : p < 0.92 ? lerp(0.04, 0.6, Math.pow(smoothstep(0.80, 0.92, p), 1.5))
-        : lerp(0.6, 0, smoothstep(0.92, 1.0, p)), 
+        : lerp(0.6, 0, smoothstep(0.92, 1.0, p)),
       suckInForce: p < 0.80 ? 0
         : p < 0.96 ? Math.pow(smoothstep(0.80, 0.96, p), 1.5)
         : lerp(1.0, 0.0, Math.pow(smoothstep(0.96, 1.0, p), 2.0)),

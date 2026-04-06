@@ -2,13 +2,35 @@
 
 import { Canvas } from "@react-three/fiber"
 import { Suspense, useEffect, useRef, useState } from "react"
+import { useTexture } from "@react-three/drei"
 import { VortexTunnel } from "./VortexTunnel"
 import { ParticleSystem } from "./ParticleSystem"
 import { CameraRig } from "./CameraRig"
-import { PortalPostProcessing } from "./PostProcessing"
 import { usePortalProgress } from "@/hooks/usePortalProgress"
 import type { PortalSceneProps, PortalPhase } from "./types"
-import { useTexture } from "@react-three/drei"
+
+// Separate component to handle texture loading (hooks can't be conditional)
+function CityTexturedTunnel({
+  progress,
+  state,
+  cityImage,
+}: {
+  progress: number
+  state: ReturnType<typeof usePortalProgress>
+  cityImage: string
+}) {
+  const texture = useTexture(cityImage)
+
+  return (
+    <VortexTunnel
+      progress={progress}
+      flashIntensity={state.flashIntensity}
+      tunnelIntensity={state.tunnelIntensity}
+      tunnelDepthScale={state.tunnelDepthScale}
+      cityTexture={texture}
+    />
+  )
+}
 
 function PortalContent({
   progress,
@@ -23,12 +45,6 @@ function PortalContent({
 }) {
   const state = usePortalProgress(progress)
   const prevPhaseRef = useRef<PortalPhase>("dormant")
-  const [isMobile, setIsMobile] = useState(false)
-  const texture = cityImage ? useTexture(cityImage) : null
-
-  useEffect(() => {
-    setIsMobile(window.innerWidth < 768)
-  }, [])
 
   useEffect(() => {
     if (state.phase !== prevPhaseRef.current) {
@@ -46,21 +62,26 @@ function PortalContent({
         suckInForce={state.suckInForce}
       />
 
-      <VortexTunnel
-        progress={progress}
-        flashIntensity={state.flashIntensity}
-        tunnelIntensity={state.tunnelIntensity}
-        tunnelDepthScale={state.tunnelDepthScale}
-        cityTexture={texture}
-      />
+      {cityImage ? (
+        <CityTexturedTunnel
+          progress={progress}
+          state={state}
+          cityImage={cityImage}
+        />
+      ) : (
+        <VortexTunnel
+          progress={progress}
+          flashIntensity={state.flashIntensity}
+          tunnelIntensity={state.tunnelIntensity}
+          tunnelDepthScale={state.tunnelDepthScale}
+        />
+      )}
 
       <ParticleSystem
         progress={progress}
         particleSpeed={state.particleSpeed}
         particleStreakFactor={state.particleStreakFactor}
       />
-
-      {/* PostProcessing disabled - shader vignette replaces it */}
     </>
   )
 }
